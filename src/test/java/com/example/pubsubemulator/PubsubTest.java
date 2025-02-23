@@ -13,9 +13,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.context.ImportTestcontainers;
-import org.springframework.context.annotation.Import;
 
 import java.util.Collection;
 import java.util.List;
@@ -24,11 +21,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Import(PubsubEmulatorConfiguration.class)
-@ImportTestcontainers(PubsubContainer.class)
-@SpringBootTest
-class PubSubEmulatorApplicationTests {
-
+public abstract class PubsubTest {
     @Autowired
     TopicAdminClient topicAdminClient;
 
@@ -42,7 +35,6 @@ class PubSubEmulatorApplicationTests {
     GcpProjectIdProvider gcpProjectIdProvider;
 
     private final Supplier<String> projectId = () -> gcpProjectIdProvider.getProjectId();
-
     private final Supplier<TopicName> topic = () -> TopicName.of(projectId.get(), "my-topic");
     private final Supplier<SubscriptionName> subscription = () -> SubscriptionName.of(projectId.get(), "my-topic");
 
