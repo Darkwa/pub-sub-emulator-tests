@@ -1,33 +1,27 @@
 package com.example.pubsubemulator;
 
-import com.google.api.gax.grpc.GrpcTransportChannel;
-import com.google.api.gax.rpc.FixedTransportChannelProvider;
-import com.google.api.gax.rpc.TransportChannelProvider;
-import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubProperties;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
+import com.google.cloud.spring.autoconfigure.core.GcpContextAutoConfiguration;
+import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubAutoConfiguration;
+import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubEmulatorAutoConfiguration;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
-import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.testcontainers.containers.PubSubEmulatorContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
-import javax.annotation.PreDestroy;
 
-@Import({
-        PubsubEmulatorConfiguration.class,
-        ExternalizedContainerTest.PubSubEmulatorConfiguration.class
-})
+// Required to get GcpPubSubEmulatorAutoConfiguration.transportChannelProvider to be picked-up because
+// DynamicPropertySource is not taken into account when computing @ConditionalOnProperty
+@TestPropertySource(properties = {"spring.cloud.gcp.pubsub.emulator-host=foo"})
+
 @ImportTestcontainers(ExternalizedContainerTest.PubsubContainer.class)
-@SpringBootTest
-@DirtiesContext
+@SpringJUnitConfig
 class ExternalizedContainerTest extends PubsubTest {
 
     public static class PubsubContainer {
@@ -43,27 +37,14 @@ class ExternalizedContainerTest extends PubsubTest {
         }
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    public static class PubSubEmulatorConfiguration {
+    @Configuration(proxyBeanMethods = false)
+    @ImportAutoConfiguration({
+            GcpPubSubEmulatorAutoConfiguration.class,
+            GcpPubSubAutoConfiguration.class,
+            GcpContextAutoConfiguration.class
+    })
+    @Import({PubsubEmulatorConfiguration.class})
+    static class TestConfiguration {
 
-        private ManagedChannel channel;
-
-        @Bean(name = {"subscriberTransportChannelProvider", "publisherTransportChannelProvider"})
-        @ConditionalOnProperty(prefix = "spring.cloud.gcp.pubsub", name = "emulator-host")
-        public TransportChannelProvider transportChannelProvider(
-                GcpPubSubProperties gcpPubSubProperties) {
-            this.channel =
-                    ManagedChannelBuilder.forTarget("dns:///" + gcpPubSubProperties.getEmulatorHost())
-                            .usePlaintext()
-                            .build();
-            return FixedTransportChannelProvider.create(GrpcTransportChannel.create(this.channel));
-        }
-
-        @PreDestroy
-        public void closeManagedChannel() {
-            if (this.channel != null) {
-                this.channel.shutdown();
-            }
-        }
     }
 }
